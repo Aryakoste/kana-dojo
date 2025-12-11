@@ -672,7 +672,7 @@ const baseThemeSets: BaseThemeGroup[] = [
         secondaryColor: 'oklch(88.63% 0.1367 194.97 / 1)',
       },
       {
-        id: "golden-twilight-grove",
+        id: 'golden-twilight-grove',
         backgroundColor: 'oklch(23.93% 0.0308 157.47 / 1)',
         mainColor: 'oklch(83.12% 0.1695 96.13 / 1)',
         secondaryColor: 'oklch(74.42% 0.0652 169.91 / 1)',
