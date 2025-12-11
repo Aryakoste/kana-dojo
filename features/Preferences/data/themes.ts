@@ -676,7 +676,13 @@ const baseThemeSets: BaseThemeGroup[] = [
         backgroundColor: 'oklch(16.84% 0.0840 312.74 / 1)',
         mainColor: 'oklch(78.00% 0.1466 226.62 / 1)',
         secondaryColor: 'oklch(88.69% 0.2657 137.42 / 1)',
-      }
+      },
+      {
+        id: 'kagehana',
+        backgroundColor: 'oklch(17.5% 0.045 285.0 / 1)',  
+        mainColor: 'oklch(80.5% 0.210 328.0 / 1)',  
+        secondaryColor: 'oklch(82.0% 0.130 210.0 / 1)',  
+      },
     ],
   },
   {
