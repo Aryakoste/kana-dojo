@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import themeSets from '@/features/Preferences/data/themes';
 import { useClick } from '@/shared/hooks/useAudio';
 import clsx from 'clsx';
@@ -12,11 +12,11 @@ const explosionKeyframes = `
     opacity: 1;
   }
   50% {
-    transform: scale(1.5);
+    transform: scale(2.4);
     opacity: 0.5;
   }
   100% {
-    transform: scale(2);
+    transform: scale(4);
     opacity: 0;
   }
 }
@@ -63,7 +63,7 @@ const getAllMainColors = () => {
       if (theme.secondaryColor) colors.add(theme.secondaryColor);
     });
   }); */
-  themeSets[2].themes.forEach(theme => {
+  themeSets[2].themes.forEach((theme) => {
     colors.add(theme.mainColor);
     if (theme.secondaryColor) colors.add(theme.secondaryColor);
   });
@@ -87,7 +87,7 @@ const loadDecorationFonts = async (
   if (fontsCache) return fontsCache;
   if (fontsLoadingPromise) return fontsLoadingPromise;
 
-  fontsLoadingPromise = import('./decorationFonts').then(module => {
+  fontsLoadingPromise = import('./decorationFonts').then((module) => {
     fontsCache = module.decorationFonts;
     fontsLoadingPromise = null;
     return module.decorationFonts;
@@ -97,28 +97,6 @@ const loadDecorationFonts = async (
 };
 
 type AnimState = 'idle' | 'exploding' | 'hidden' | 'fading-in';
-
-// Get neighbors for a given index in a grid
-const getNeighbors = (
-  index: number,
-  columns: number,
-  total: number
-): number[] => {
-  const row = Math.floor(index / columns);
-  const col = index % columns;
-  const neighbors: number[] = [];
-
-  // Left
-  if (col > 0) neighbors.push(index - 1);
-  // Right
-  if (col < columns - 1) neighbors.push(index + 1);
-  // Top
-  if (row > 0) neighbors.push(index - columns);
-  // Bottom
-  if (index + columns < total) neighbors.push(index + columns);
-
-  return neighbors;
-};
 
 // Component to render a single kanji character with random styles
 const KanjiCharacter = ({
@@ -175,7 +153,7 @@ const KanjiCharacter = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [forceShow]);
 
   const handleClick = () => {
     if (!interactive || animState !== 'idle' || !onExplode) return;
@@ -206,42 +184,20 @@ const KanjiCharacter = ({
         'text-4xl inline-flex items-center justify-center',
         styles.fontClass,
         !interactive && styles.animation,
-        interactive && 'cursor-pointer'
+        interactive && animState === 'idle' && 'cursor-pointer'
       )}
-      aria-hidden='true'
+      aria-hidden="true"
       style={{
         color: styles.color,
         transformOrigin: 'center center',
+        pointerEvents: interactive && animState !== 'idle' ? 'none' : undefined,
         ...getAnimationStyle()
       }}
-      onClick={interactive ? handleClick : undefined}
+      onClick={interactive && animState === 'idle' ? handleClick : undefined}
     >
       {char}
     </span>
   );
-};
-
-// Custom hook to get current column count based on screen size
-const useColumns = (interactive: boolean) => {
-  const [columns, setColumns] = useState(28);
-
-  useEffect(() => {
-    if (!interactive) {
-      setColumns(28);
-      return;
-    }
-
-    const updateColumns = () => {
-      // md breakpoint is 768px
-      setColumns(window.innerWidth >= 768 ? 28 : 10);
-    };
-
-    updateColumns();
-    window.addEventListener('resize', updateColumns);
-    return () => window.removeEventListener('resize', updateColumns);
-  }, [interactive]);
-
-  return columns;
 };
 
 const Decorations = ({
@@ -257,11 +213,7 @@ const Decorations = ({
   const [animStates, setAnimStates] = useState<Map<number, AnimState>>(
     new Map()
   );
-  // Use ref for synchronous chain tracking (state updates are async and cause infinite loops)
-  const explodedInChainRef = useRef<Set<number>>(new Set());
-  // Track if user has already triggered an explosion (single-click only)
-  const hasTriggeredRef = useRef(false);
-  const columns = useColumns(interactive);
+  const animatingRef = useRef<Set<number>>(new Set());
   const { playClick } = useClick();
 
   useEffect(() => {
@@ -269,10 +221,10 @@ const Decorations = ({
 
     const loadKanji = async () => {
       const results = await Promise.all(
-        kanjiSources.map(async level => {
+        kanjiSources.map(async (level) => {
           const response = await fetch(`/kanji/${level}.json`);
           const data = (await response.json()) as RawKanjiEntry[];
-          return data.map(entry => entry.kanjiChar);
+          return data.map((entry) => entry.kanjiChar);
         })
       );
 
@@ -287,45 +239,25 @@ const Decorations = ({
     };
   }, []);
 
-  const triggerExplosion = (index: number, isChainReaction = false) => {
-    // Check if already in current chain (synchronous check via ref)
-    if (explodedInChainRef.current.has(index)) return;
+  const triggerExplosion = (index: number) => {
+    if (animatingRef.current.has(index)) return;
+    animatingRef.current.add(index);
+    playClick();
 
-    // Only allow one initial click per page load
-    if (!isChainReaction) {
-      if (hasTriggeredRef.current) return;
-      hasTriggeredRef.current = true;
-      playClick();
-      // Reset chain tracking for new explosion
-      explodedInChainRef.current = new Set([index]);
-    } else {
-      explodedInChainRef.current.add(index);
-    }
-
-    // Set to exploding
-    setAnimStates(prev => new Map(prev).set(index, 'exploding'));
-
-    // Trigger neighbors after delay
-    setTimeout(() => {
-      const neighbors = getNeighbors(index, columns, kanjiList.length);
-      neighbors.forEach((neighborIndex, i) => {
-        setTimeout(() => {
-          triggerExplosion(neighborIndex, true);
-        }, i * 30); // Stagger neighbor explosions
-      });
-    }, 50);
+    setAnimStates((prev) => new Map(prev).set(index, 'exploding'));
 
     // Animation state transitions
     setTimeout(() => {
-      setAnimStates(prev => new Map(prev).set(index, 'hidden'));
+      setAnimStates((prev) => new Map(prev).set(index, 'hidden'));
       setTimeout(() => {
-        setAnimStates(prev => new Map(prev).set(index, 'fading-in'));
+        setAnimStates((prev) => new Map(prev).set(index, 'fading-in'));
         setTimeout(() => {
-          setAnimStates(prev => {
+          setAnimStates((prev) => {
             const next = new Map(prev);
             next.delete(index);
             return next;
           });
+          animatingRef.current.delete(index);
         }, 500);
       }, 1500);
     }, 300);
